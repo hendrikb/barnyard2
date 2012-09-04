@@ -27,4 +27,8 @@
 
 void DatabaseSetup(void);
 
+#ifdef SUP_IP6
+char * ipv6_ntohl(sfip_t *);
+#endif
+
 #endif  /* __SPO_DATABASE_H__ */

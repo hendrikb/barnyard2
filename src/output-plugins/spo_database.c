@@ -67,6 +67,27 @@
 #include "unified2.h"
 #include "util.h"
 
+#ifdef SUP_IP6
+#include <gmp.h>
+char * ipv6_ntohl(sfip_t *sfip)
+{   
+    mpz_t integ;
+
+    mpz_init2 (integ, 128);
+    mpz_set_ui (integ, ntohl(sfip->ip32[0]));
+
+    mpz_mul_2exp (integ, integ, 32);
+    mpz_add_ui (integ, integ, ntohl(sfip->ip32[1]));
+
+    mpz_mul_2exp (integ, integ, 32);
+    mpz_add_ui (integ, integ, ntohl(sfip->ip32[2]));
+
+    mpz_mul_2exp (integ, integ, 32);
+    mpz_add_ui (integ, integ, ntohl(sfip->ip32[3]));
+    return mpz_get_str (NULL, 10, integ);
+}
+#endif
+
 #ifdef ENABLE_POSTGRESQL
 # include <libpq-fe.h>
 #endif
@@ -1996,41 +2017,105 @@ void Database(Packet *p, void *event, uint32_t event_type, void *arg)
 
             if(data->detail)
             {
-                ret = SnortSnprintf(query->val, MAX_QUERY_LENGTH,
-                                    "INSERT INTO "
-                                    "iphdr (sid, cid, ip_src, ip_dst, ip_ver, ip_hlen, "
-                                    "       ip_tos, ip_len, ip_id, ip_flags, ip_off,"
-                                    "       ip_ttl, ip_proto, ip_csum) "
-                                    "VALUES (%u,%u,%lu,%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u)",
-                                    data->shared->sid,
-                                    data->shared->cid,
-                                    (u_long)ntohl(p->iph->ip_src.s_addr),
-                                    (u_long)ntohl(p->iph->ip_dst.s_addr),
-                                    IP_VER(p->iph),
-                                    IP_HLEN(p->iph),
-                                    p->iph->ip_tos,
-                                    ntohs(p->iph->ip_len),
-                                    ntohs(p->iph->ip_id),
-                                    p->frag_flag,
-                                    ntohs(p->frag_offset),
-                                    p->iph->ip_ttl,
-                                    p->iph->ip_proto,
-                                    ntohs(p->iph->ip_csum));
+				if (IP_VER(p->iph) == 4)
+				{
+					ret = SnortSnprintf(query->val, MAX_QUERY_LENGTH,
+										"INSERT INTO "
+										"iphdr (sid, cid, ip_src, ip_dst, ip_ver, ip_hlen, "
+										"       ip_tos, ip_len, ip_id, ip_flags, ip_off,"
+										"       ip_ttl, ip_proto, ip_csum) "
+										"VALUES (%u,%u,%lu,%lu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u)",
+										data->shared->sid,
+										data->shared->cid,
+										(u_long)ntohl(p->iph->ip_src.s_addr),
+										(u_long)ntohl(p->iph->ip_dst.s_addr),
+										IP_VER(p->iph),
+										IP_HLEN(p->iph),
+										p->iph->ip_tos,
+										ntohs(p->iph->ip_len),
+										ntohs(p->iph->ip_id),
+										p->frag_flag,
+										ntohs(p->frag_offset),
+										p->iph->ip_ttl,
+										p->iph->ip_proto,
+										ntohs(p->iph->ip_csum));
+				}
+#ifdef SUP_IP6
+				else {
+					if (IP_VER(p->iph) == 6) 
+					{
+						char * sIPsrc = ipv6_ntohl(&p->ip6h->ip_src);
+						char * sIPdst = ipv6_ntohl(&p->ip6h->ip_dst);
+						ret = SnortSnprintf(query->val, MAX_QUERY_LENGTH,
+											"INSERT INTO "
+											"iphdr (sid, cid, ip_src, ip_dst, ip_ver, ip_hlen, "
+											"       ip_tos, ip_len, ip_id, ip_flags, ip_off,"
+											"       ip_ttl, ip_proto, ip_csum) "
+											"VALUES (%u,%u,%s,%s,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u)",
+											data->shared->sid,
+											data->shared->cid,
+											sIPsrc,
+											sIPdst,
+											IP_VER(p->iph),
+											IP_HLEN(p->iph),
+											p->iph->ip_tos,
+											ntohs(p->iph->ip_len),
+											ntohs(p->iph->ip_id),
+											p->frag_flag,
+											ntohs(p->frag_offset),
+											p->iph->ip_ttl,
+											p->iph->ip_proto,
+											ntohs(p->iph->ip_csum));
+
+					}
+					else {
+						ErrorMessage("Invalid IP family.");
+					}
+
+				}
+#endif
 
                 if (ret != SNORT_SNPRINTF_SUCCESS)
                     goto bad_query;
             }
             else
             {
-                ret = SnortSnprintf(query->val, MAX_QUERY_LENGTH,
-                                    "INSERT INTO "
-                                    "iphdr (sid, cid, ip_src, ip_dst, ip_proto) "
-                                    "VALUES (%u,%u,%lu,%lu,%u)",
-                                    data->shared->sid,
-                                    data->shared->cid,
-                                    (u_long)ntohl(p->iph->ip_src.s_addr),
-                                    (u_long)ntohl(p->iph->ip_dst.s_addr),
-                                    GET_IPH_PROTO(p));
+				if (IP_VER(p->iph) == 4)
+				{
+					ret = SnortSnprintf(query->val, MAX_QUERY_LENGTH,
+										"INSERT INTO "
+										"iphdr (sid, cid, ip_src, ip_dst, ip_proto) "
+										"VALUES (%u,%u,%lu,%lu,%u)",
+										data->shared->sid,
+										data->shared->cid,
+										(u_long)ntohl(p->iph->ip_src.s_addr),
+										(u_long)ntohl(p->iph->ip_dst.s_addr),
+										GET_IPH_PROTO(p));
+				}
+#ifdef SUP_IP6
+				else
+				{
+					if (IP_VER(p->iph) == 6)
+					{
+						char * sIPsrc = ipv6_ntohl(&p->ip6h->ip_src);
+						char * sIPdst = ipv6_ntohl(&p->ip6h->ip_dst);
+						ret = SnortSnprintf(query->val, MAX_QUERY_LENGTH,
+											"INSERT INTO "
+											"iphdr (sid, cid, ip_src, ip_dst, ip_proto) "
+											"VALUES (%u,%u,%s,%s,%u)",
+											data->shared->sid,
+											data->shared->cid,
+											sIPsrc,
+											sIPdst,
+											GET_IPH_PROTO(p));
+
+					}
+					else
+					{
+						ErrorMessage("Invalid IP family.");
+					}
+				}
+#endif
 
                 if (ret != SNORT_SNPRINTF_SUCCESS)
                     goto bad_query;
