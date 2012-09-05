@@ -472,14 +472,17 @@ if test "x$enable_ipv6" = "xyes"; then
 		LDFLAGS="${LDFLAGS} ${LIBPRELUDE_LDFLAGS} -lgmp"
 		LIBS="$LIBS ${LIBPRELUDE_LIBS} -lgmp"
 	  else
+        AC_MSG_RESULT(no)
       	FAIL_MESSAGE("gmp headers (/usr/include/gmp.h)", $tmp)
 	  fi
       if test -r "/usr/lib/x86_64-linux-gnu/libgmp.so"; then
 		LDFLAGS="${LDFLAGS} ${LIBPRELUDE_LDFLAGS} -lgmp"
 		LIBS="$LIBS ${LIBPRELUDE_LIBS} -lgmp"
 	  else
+        AC_MSG_RESULT(no)
       	FAIL_MESSAGE("gmp libraries (/usr/lib/x86_64-linux-gnu/libgmp.so)", $tmp)
 	  fi
+      AC_MSG_RESULT(yes)
 fi
 AM_CONDITIONAL(HAVE_SUP_IP6, test "x$enable_ipv6" = "xyes")
 
